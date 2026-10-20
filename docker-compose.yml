@@ -15,5 +15,15 @@ services:
       timeout: 3s
       retries: 20
 
+  backend:
+    build: ./backend
+    environment:
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   db-data:
