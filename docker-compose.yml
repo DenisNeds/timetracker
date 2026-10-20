@@ -21,6 +21,9 @@ services:
       PORT: 3000
       # "db" is the service name above; Docker's network resolves it to the DB container
       DATABASE_URL: postgres://${POSTGRES_USER:-tracker}:${POSTGRES_PASSWORD:-tracker}@db:5432/${POSTGRES_DB:-tracker}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
     ports:
       - "3000:3000"
     depends_on:

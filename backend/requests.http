@@ -1,0 +1,60 @@
+# Manual API tests. Open in VS Code with the "REST Client" extension
+# (humao.rest-client) and click "Send Request" above each request.
+# Cookies are remembered between requests, like in a browser,
+# so after a login the following requests are sent as that user.
+
+@baseUrl = http://localhost:3000/api
+
+### Health check
+GET {{baseUrl}}/health
+
+### Register a new user (201, or 409 if the name is taken)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "denis",
+  "password": "secret123"
+}
+
+### Log in as the normal user
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "denis",
+  "password": "secret123"
+}
+
+### Log in as admin (values from ADMIN_USERNAME / ADMIN_PASSWORD)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+### Who am I? (401 if not logged in)
+GET {{baseUrl}}/auth/me
+
+### Log out (clears the cookie; /me returns 401 afterwards)
+POST {{baseUrl}}/auth/logout
+
+### Invalid input: username too short (400)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "ab",
+  "password": "secret123"
+}
+
+### Wrong password (401)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "denis",
+  "password": "wrong-password"
+}
