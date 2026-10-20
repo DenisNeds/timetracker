@@ -1,5 +1,6 @@
 import http from 'node:http';
 import express from 'express';
+import { migrate } from './migrate.js';
 
 const PORT = process.env.PORT || 3000;
 
@@ -17,6 +18,16 @@ app.get('/api/health', (req, res) => {
 // the WebSocket server will later attach to this same server.
 const server = http.createServer(app);
 
-server.listen(PORT, () => {
-  console.log(`Backend listening on port ${PORT}`);
+async function start() {
+  // Make sure the database tables exist before accepting requests
+  await migrate();
+
+  server.listen(PORT, () => {
+    console.log(`Backend listening on port ${PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error('Failed to start:', err);
+  process.exit(1);
 });

@@ -19,6 +19,8 @@ services:
     build: ./backend
     environment:
       PORT: 3000
+      # "db" is the service name above; Docker's network resolves it to the DB container
+      DATABASE_URL: postgres://${POSTGRES_USER:-tracker}:${POSTGRES_PASSWORD:-tracker}@db:5432/${POSTGRES_DB:-tracker}
     ports:
       - "3000:3000"
     depends_on:
