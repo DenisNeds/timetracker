@@ -2,7 +2,10 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { query } from '../db.js';
 import { asyncHandler } from '../asyncHandler.js';
-import { requireAuth, setAuthCookie, clearAuthCookie } from '../middleware/auth.js';
+import {
+  requireAuth, setAuthCookie, clearAuthCookie, verifyToken, TOKEN_COOKIE,
+} from '../middleware/auth.js';
+import { endUserVisits } from '../tracking/visits.js';
 
 const router = Router();
 
@@ -77,11 +80,21 @@ router.post('/login', asyncHandler(async (req, res) => {
   res.json({ user: publicUser(user) });
 }));
 
-// POST /api/auth/logout
-router.post('/logout', (req, res) => {
+// POST /api/auth/logout — stops time tracking and clears the cookie.
+// Doesn't use requireAuth: logging out with an expired token should still work.
+router.post('/logout', asyncHandler(async (req, res) => {
+  const token = req.cookies[TOKEN_COOKIE];
+  if (token) {
+    try {
+      const user = verifyToken(token);
+      await endUserVisits(user.id);
+    } catch {
+      // invalid or expired token: nothing to stop, just clear the cookie
+    }
+  }
   clearAuthCookie(res);
   res.json({ ok: true });
-});
+}));
 
 // GET /api/auth/me — who is logged in? The frontend calls this on page load.
 router.get('/me', requireAuth, asyncHandler(async (req, res) => {

@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import { migrate } from './migrate.js';
 import { seedAdmin } from './seed.js';
 import authRoutes from './routes/auth.js';
+import { closeStaleVisits } from './tracking/visits.js';
 
 const PORT = process.env.PORT || 3000;
 
@@ -40,6 +41,7 @@ async function start() {
   // Make sure the database tables and the admin account exist before accepting requests
   await migrate();
   await seedAdmin();
+  await closeStaleVisits();
 
   server.listen(PORT, () => {
     console.log(`Backend listening on port ${PORT}`);
