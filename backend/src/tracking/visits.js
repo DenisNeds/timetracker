@@ -32,7 +32,8 @@ export async function startVisit(userId, page) {
   }
 }
 
-// Heartbeat: "the user is still here". Returns false if the visit is no
+// User activity: "the user is still here", so last_seen_at always holds the
+// last moment we know the user was active. Returns false if the visit is no
 // longer open (another tab took over, or the user logged out).
 export async function touchVisit(visitId) {
   const { rowCount } = await query(
@@ -43,8 +44,8 @@ export async function touchVisit(visitId) {
 }
 
 // Ends one visit. Use endAt = 'now' when we know the user just left
-// (navigated away, closed the tab), and 'lastSeen' when the connection died
-// silently: then we only count time up to the last heartbeat we received.
+// (navigated away, closed the tab), and 'lastSeen' when the user went idle or
+// the connection died silently: then we only count time up to their last activity.
 export async function endVisit(visitId, endAt = 'now') {
   const endExpr = endAt === 'lastSeen' ? 'last_seen_at' : 'now()';
   await query(
@@ -64,8 +65,8 @@ export async function endUserVisits(userId) {
 }
 
 // Called once at server start. Any visit still open now was left behind by a
-// crash or restart (no client can be connected yet), so close it at the last
-// heartbeat we received. That way downtime is never counted as time on a page.
+// crash or restart (no client can be connected yet), so close it at the
+// user's last activity. That way downtime is never counted as time on a page.
 export async function closeStaleVisits() {
   const { rowCount } = await query(
     'UPDATE page_visits SET ended_at = last_seen_at WHERE ended_at IS NULL',

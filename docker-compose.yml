@@ -24,6 +24,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      # optional: one idle timeout for all pages (e.g. 15 for testing).
+      # Empty = per-page defaults from ws.js (home 2 min, articles and stats 5 min)
+      IDLE_TIMEOUT_SECONDS: ${IDLE_TIMEOUT_SECONDS:-}
     ports:
       - "3000:3000"
     depends_on:
