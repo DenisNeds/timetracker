@@ -6,6 +6,7 @@ import {
   requireAuth, setAuthCookie, clearAuthCookie, verifyToken, TOKEN_COOKIE,
 } from '../middleware/auth.js';
 import { endUserVisits } from '../tracking/visits.js';
+import { closeUserConnections } from '../ws.js';
 
 const router = Router();
 
@@ -88,6 +89,7 @@ router.post('/logout', asyncHandler(async (req, res) => {
     try {
       const user = verifyToken(token);
       await endUserVisits(user.id);
+      closeUserConnections(user.id);
     } catch {
       // invalid or expired token: nothing to stop, just clear the cookie
     }

@@ -5,6 +5,7 @@ import { migrate } from './migrate.js';
 import { seedAdmin } from './seed.js';
 import authRoutes from './routes/auth.js';
 import { closeStaleVisits } from './tracking/visits.js';
+import { attachWebSocket } from './ws.js';
 
 const PORT = process.env.PORT || 3000;
 
@@ -36,6 +37,7 @@ app.use((err, req, res, next) => {
 // We create the HTTP server ourselves (instead of app.listen) because
 // the WebSocket server will later attach to this same server.
 const server = http.createServer(app);
+attachWebSocket(server);
 
 async function start() {
   // Make sure the database tables and the admin account exist before accepting requests
