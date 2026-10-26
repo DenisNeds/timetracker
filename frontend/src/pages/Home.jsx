@@ -15,7 +15,11 @@ export default function Home() {
       <h2>What counts as time on a page</h2>
       <ul>
         <li>The time starts when you open a page and stops when you leave it.</li>
-        <li>A hidden tab (another tab or a minimized window) doesn't count.</li>
+        <li>
+          Time only counts while you're actually looking at the app: not while
+          another tab is open, the window is minimized, or you're using another
+          program.
+        </li>
         <li>
           If you stop using the page for a while (no mouse, keyboard, scrolling or
           touch), the clock stops at your last activity and starts again when you

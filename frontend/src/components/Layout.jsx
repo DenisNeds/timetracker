@@ -1,8 +1,25 @@
 import { NavLink, Outlet } from 'react-router';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { useTracker } from '../tracking/useTracker.js';
+import { PAGE_LABELS } from '../pages/pageLabels.js';
+
+// What the small indicator in the header says for each tracker status
+function statusText(status, page) {
+  switch (status) {
+    case 'tracking': return `Tracking: ${PAGE_LABELS[page]}`;
+    case 'idle': return 'Paused: no activity';
+    case 'inactive': return 'Paused: another tab is active';
+    case 'paused': return 'Paused: window not in focus';
+    case 'offline': return 'Reconnecting…';
+    default: return 'Connecting…';
+  }
+}
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, sessionEnded } = useAuth();
+  // The layout is only shown to logged-in users, so tracking runs exactly
+  // while someone is logged in, on every page.
+  const { page, status, stats } = useTracker(sessionEnded);
 
   return (
     <div className="app">
@@ -24,8 +41,13 @@ export default function Layout() {
           </button>
         </div>
       </header>
+      <p className={`tracker-status tracker-status-${status}`}>
+        <span className="dot" />
+        {statusText(status, page)}
+      </p>
       <main className="main">
-        <Outlet />
+        {/* the pages read the live stats with useOutletContext() */}
+        <Outlet context={{ stats }} />
       </main>
     </div>
   );

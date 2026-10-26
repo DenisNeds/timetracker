@@ -36,9 +36,15 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // The session ended somewhere else (logout in another tab, expired token):
+  // the server already knows, so only the app's state needs to change.
+  const sessionEnded = useCallback(() => setUser(null), []);
+
   const value = useMemo(
-    () => ({ user, login, register, logout }),
-    [user, login, register, logout],
+    () => ({
+      user, login, register, logout, sessionEnded,
+    }),
+    [user, login, register, logout, sessionEnded],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
