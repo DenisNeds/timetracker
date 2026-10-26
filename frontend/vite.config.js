@@ -1,0 +1,15 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+// In development the Vite server forwards /api and /ws to the backend, so the
+// browser sees one origin (localhost:5173) and the login cookie just works.
+// In Docker, nginx does the same job.
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/ws': { target: 'ws://localhost:3000', ws: true },
+    },
+  },
+});

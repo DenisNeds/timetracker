@@ -1,0 +1,232 @@
+/* Mobile first: the base styles are for phones, the media query below adds
+   room for bigger screens. */
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --text: #1d2330;
+  --muted: #5d6576;
+  --border: #dde1e8;
+  --accent: #2f5bd3;
+  --accent-text: #ffffff;
+  --error: #c0362c;
+  --radius: 10px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d;
+    --surface: #1e222a;
+    --text: #e6e9ef;
+    --muted: #9aa2b1;
+    --border: #2f3541;
+    --accent: #6e93f5;
+    --accent-text: #0e1320;
+    --error: #ff7b70;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+h1,
+h2 {
+  line-height: 1.25;
+  margin: 0 0 0.75rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+h2 {
+  font-size: 1.2rem;
+}
+
+a {
+  color: var(--accent);
+}
+
+button {
+  font: inherit;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.6rem 1rem;
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.button-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.8rem;
+}
+
+button.link {
+  background: none;
+  color: var(--accent);
+  padding: 0;
+  text-decoration: underline;
+}
+
+input {
+  font: inherit;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.loading {
+  text-align: center;
+  margin-top: 30vh;
+  color: var(--muted);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.error {
+  color: var(--error);
+  margin: 0;
+}
+
+/* Login / register */
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-card .switch {
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Header: on phones brand + account on the first row, nav on its own row */
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-weight: 700;
+}
+
+.account {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.username {
+  color: var(--muted);
+}
+
+.badge {
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.nav {
+  order: 3;
+  width: 100%;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.nav a {
+  flex: 1;
+  text-align: center;
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.nav a.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.main {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.prose p,
+.prose ul {
+  margin: 0 0 0.75rem;
+}
+
+.articles {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Wider screens: everything in one header row */
+@media (min-width: 700px) {
+  .nav {
+    order: 0;
+    width: auto;
+    margin-left: 1.5rem;
+  }
+
+  .nav a {
+    flex: none;
+    padding: 0.4rem 0.9rem;
+  }
+
+  .main {
+    padding: 2rem 1rem;
+  }
+
+  .card {
+    padding: 1.75rem;
+  }
+}
