@@ -1,214 +1,275 @@
-# Time Tracker
+# (Time Tracker)
 
-A web app that records how much time each logged-in user spends on each of its
-three pages (Home, Articles, Statistics). The time is measured on the backend
-and stored in PostgreSQL. The Statistics page updates live: a user sees their
-own numbers, an admin sees everyone's.
+Spletna aplikacija, ki beleži, koliko časa vsak prijavljeni uporabnik preživi na
+vsaki od treh strani (Home, Articles, Statistics). Čas se meri na backendu in
+shranjuje v PostgreSQL. Stran s statistiko se posodablja v živo: uporabnik vidi
+svoje podatke, admin vidi podatke vseh uporabnikov.
 
-**Stack:** React + Vite (frontend, served by nginx) · Node.js + Express + `ws`
-(backend) · PostgreSQL 16 · Docker Compose
+**Stack:** React + Vite (frontend, streže ga nginx) · Node.js + Express +
+`ws` (backend) · PostgreSQL 16 · Docker Compose
 
-## 1. Setup
+## 1. Navodila za namestitev
 
-Requirements: Docker with Docker Compose.
+Potrebno: Docker z Docker Compose.
 
 ```bash
 docker compose up --build
 ```
 
-Then open **http://localhost:8080**.
+Nato odprite **http://localhost:8080**.
 
-- Register a new account on the login page (every new account is a normal user), or
-- log in as the admin: **`admin` / `admin123`**
+- Na prijavni strani registrirajte nov račun (vsak nov račun je navaden uporabnik), ali
+- se prijavite kot admin: **`admin` / `admin123`**
 
-The defaults work without any configuration. To change them, copy `.env.example`
-to `.env` and edit it:
+Privzete nastavitve delujejo brez kakršne koli konfiguracije. Za spremembo
+kopirajte `.env.example` v `.env` in ga uredite:
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `FRONTEND_PORT` | `8080` | Port of the app in the browser (change it if 8080 is taken) |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / `admin123` | The admin account, created on first start |
-| `JWT_SECRET` | `dev-secret-change-me` | Signs the login tokens; **change it for anything real** |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `tracker` | Database credentials |
-| `IDLE_TIMEOUT_SECONDS` | (per page) | One idle timeout for all pages, e.g. `15` to test idle detection quickly |
+| Spremenljivka                                         | Privzeto                                                                   | Namen                                                                   |
+| ----------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `FRONTEND_PORT`                                       | `8080`                                                                     | Vrata aplikacije v brskalniku (spremenite, če so 8080 zasedena)         |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD`                   | `admin` / `admin123`                                                       | Admin račun, ustvarjen ob prvem zagonu                                  |
+| `JWT_SECRET`                                          | `mionpiongluonbozonelektronnevtronpozitronfotonprotongordolcharmbottomtop` | Podpisuje prijavne žetone; **za resno uporabo ga obvezno spremenite**   |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `tracker`                                                                  | Podatki za dostop do baze                                               |
+| `IDLE_TIMEOUT_SECONDS`                                | (po straneh)                                                               | En časovni prag neaktivnosti za vse strani, npr. `15` za hiter preizkus |
 
-On start the backend runs the database migration, creates the admin account if
-it doesn't exist yet, and closes any visits left open by a previous run.
+Ob zagonu backend izvede migracijo baze, ustvari admin račun (če še ne obstaja)
+in zapre obiske, ki jih je odprte pustil prejšnji zagon.
 
-### Local development (optional)
+### Lokalno (neobvezno)
 
 ```bash
-docker compose up -d db backend   # database + API on :3000
-cd frontend && npm install && npm run dev   # app on http://localhost:5173
+docker compose up -d db backend   # baza + API na :3000
+cd frontend && npm install && npm run dev   # aplikacija na http://localhost:5173
 ```
 
-Vite forwards `/api` and `/ws` to the backend, just like nginx does in Docker.
-`backend/requests.http` has example API requests, and `backend/scripts/` has
-small WebSocket test scripts (run them with `docker compose exec backend node scripts/<name>.js`).
+Vite posreduje `/api` in `/ws` backendu, enako kot nginx v Dockerju.
+V `backend/requests.http` so primeri API requestov, v `backend/scripts/` pa
+kratke testne skripte za WebSocket (zaženete jih z
+`docker compose exec backend node scripts/<ime>.js`).
 
-### How it works
+### Kako deluje
 
+**Arhitektura** — kdo s kom govori:
+
+```mermaid
+flowchart LR
+  subgraph B["🌐 Brskalnik"]
+    UI["React aplikacija<br/>Home · Articles · Statistics"]
+    T["useTracker<br/>stran · fokus · aktivnost"]
+  end
+  subgraph D["🐳 Docker Compose"]
+    N["nginx :8080<br/>statične datoteke + proxy"]
+    subgraph BE["backend :3000 · Node.js"]
+      API["Express REST<br/>/api/auth · /api/stats"]
+      WS["WebSocket /ws<br/>beleženje časa · ping na 10 s<br/>statistika na 1 s"]
+    end
+    DB[("PostgreSQL<br/>users · page_visits")]
+  end
+  UI -->|"HTTP: prijava, odjava"| N
+  T <-->|"WebSocket: enter, activity, pause ⇄ stats"| N
+  N -->|"/api"| API
+  N -->|"/ws"| WS
+  API --> DB
+  WS --> DB
 ```
-browser ──HTTP /api──▶ nginx ──▶ Express  (login, logout, stats)
-        ──WebSocket /ws──▶     ──▶ ws server (page changes, activity, live stats)
-                                     │
-                                     ▼
-                                 PostgreSQL: users, page_visits
+
+**Potek obiska** — kako en uporabnik ustvari vrstice v bazi:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as Uporabnik
+  participant B as Brskalnik
+  participant S as Strežnik
+  participant DB as PostgreSQL
+
+  U->>B: prijava
+  B->>S: POST /api/auth/login
+  S-->>B: JWT v httpOnly piškotku
+  B->>S: odpre WebSocket /ws (strežnik preveri piškotek)
+
+  U->>B: odpre Articles
+  B->>S: enter articles
+  S->>DB: nov obisk (started_at = zdaj)
+  loop dokler uporabnik bere
+    B->>S: activity (največ vsakih 5 s)
+    S->>DB: last_seen_at = zdaj
+  end
+
+  U->>B: preklopi na drug program
+  B->>S: pause
+  S->>DB: ended_at = zdaj
+  Note over S,DB: Brez aktivnosti (2–5 min) ali brez odgovora na ping<br/>→ obisk se konča ob last_seen_at
+
+  U->>B: se vrne in odpre Statistics
+  B->>S: enter stats
+  S->>DB: nov obisk
+  loop vsako sekundo
+    S->>DB: vsota časov po straneh
+    S-->>B: stats (admin: vsi uporabniki, user: samo on)
+  end
 ```
 
-Each tab keeps one WebSocket open. It tells the server which page is open and
-whether the user is active; the **server** decides when time starts and stops
-and writes it to the database. Every continuous stretch of time on one page is
-one row in `page_visits` (`started_at`, `ended_at`, `last_seen_at`). A user's
-time on a page is the sum of their rows for that page; an open row
-(`ended_at IS NULL`) counts up to the current moment.
+Vsak zavihek ima odprto eno WebSocket povezavo. Prek nje sporoča, katera stran
+je odprta in ali je uporabnik aktiven; **strežnik** odloča, kdaj se čas začne
+in ustavi, ter ga zapisuje v bazo. Vsak neprekinjen čas na eni strani je ena
+vrstica v `page_visits` (`started_at`, `ended_at`, `last_seen_at`). Čas
+uporabnika na strani je vsota njegovih vrstic za to stran; odprta vrstica
+(`ended_at IS NULL`) se šteje do trenutnega trenutka.
 
-## 2. Design decisions
+## 2. Načrtovalske odločitve
 
-### How do users log in, and how is the admin told apart from a normal user?
+### Kako se uporabniki prijavijo in kako ločimo admina od navadnega uporabnika?
 
-- **Username and password.** Passwords are hashed with bcrypt. Registration is
-  open, and validates the input on the server.
-- After login the server sets a **JWT in an httpOnly cookie** (7 days).
-  JavaScript can't read it, which protects it from XSS; `sameSite: lax`
-  protects against CSRF. Because nginx serves the app and the API on the same
-  origin, the cookie works without any CORS setup.
-- `users.role` is `'user'` or `'admin'` (enforced by a `CHECK` constraint).
-  **Registration always creates a normal user.** The only admin is created by
-  a seed from environment variables, so nobody can make themselves an admin.
-- The role is read from the verified token on the **server**, both by the REST
-  endpoint (`GET /api/stats`) and by the WebSocket. A normal user can't get
-  other users' stats by changing the frontend: the server never sends them.
-- The WebSocket checks the cookie during the HTTP upgrade, before the
-  connection is accepted.
+- **Uporabniško ime in geslo.** Gesla so zgoščena z bcrypt. Registracija je
+  odprta, vnos pa se preverja na strežniku.
+- Po prijavi strežnik nastavi **JWT v httpOnly piškotku** (7 dni). JavaScript
+  ga ne more prebrati, kar ga ščiti pred XSS; `sameSite: lax` ščiti pred CSRF.
+  Ker nginx streže aplikacijo in API na istem izvoru (origin), piškotek deluje
+  brez nastavljanja CORS.
+- `users.role` je `'user'` ali `'admin'` (zagotavlja ga omejitev `CHECK`).
+  **Registracija vedno ustvari navadnega uporabnika.** Edini admin se ustvari
+  s seedom iz okoljskih spremenljivk, zato se nihče ne more sam narediti za admina.
+- Vlogo **strežnik** prebere iz preverjenega žetona, tako v REST endpointu
+  (`GET /api/stats`) kot v WebSocketu. Navaden uporabnik s spreminjanjem
+  frontenda ne more dobiti statistike drugih: strežnik mu je nikoli ne pošlje.
+- WebSocket preveri piškotek med HTTP "upgrade" zahtevkom, še preden je
+  povezava sprejeta.
 
-### How does the app detect that the browser was closed or the connection lost?
+### Kako aplikacija zazna, da je uporabnik zaprl brskalnik ali izgubil povezavo?
 
-The browser keeps a **WebSocket** open for as long as the app is open:
+Brskalnik ima odprto **WebSocket** povezavo, dokler je aplikacija odprta:
 
-| What happens | How it's detected | Where the time stops |
-|---|---|---|
-| Tab or browser closed, navigating away | The socket closes right away | Now |
-| Logout | `POST /api/auth/logout` closes the visit and every socket of that user (close code 4001, so other tabs go to the login page too) | Now |
-| Lost connection, laptop closed, browser crashed | The server **pings every 10 s**; a socket that misses a ping is terminated (within 10–20 s) | At the user's **last activity** (`last_seen_at`) |
-| Server crash or restart | On start, every visit still open is closed | At `last_seen_at` |
+| Kaj se zgodi                                             | Kako se zazna                                                                                                                 | Kdaj se čas ustavi                                     |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Zaprt zavihek ali brskalnik, odhod na drugo stran        | Povezava se takoj zapre                                                                                                       | Takoj                                                  |
+| Odjava                                                   | `POST /api/auth/logout` zapre obisk in vse povezave tega uporabnika (koda 4001, zato se tudi drugi zavihki vrnejo na prijavo) | Takoj                                                  |
+| Izgubljena povezava, zaprt prenosnik, sesutje brskalnika | Strežnik **pošlje ping vsakih 10 s**; povezava, ki ne odgovori, se prekine (v 10–20 s)                                        | Ob uporabnikovi **zadnji aktivnosti** (`last_seen_at`) |
+| Sesutje ali ponovni zagon strežnika                      | Ob zagonu se zaprejo vsi še odprti obiski                                                                                     | Ob `last_seen_at`                                      |
 
-Ending at the last activity, rather than at the moment the problem was
-noticed, means a dead connection or downtime never adds time the user didn't
-actually spend.
+Ker se obisk konča ob zadnji aktivnosti in ne v trenutku, ko je bila težava
+opažena, mrtva povezava ali izpad strežnika nikoli ne dodata časa, ki ga
+uporabnik ni zares preživel.
 
-Being connected isn't the same as reading, so the server also stops counting when:
+Povezanost še ne pomeni branja, zato strežnik preneha šteti tudi, ko:
 
-- **The user isn't looking at the app.** The tab is hidden (another tab,
-  minimized) or the window lost focus (another program in front). The browser
-  sends `pause`, and `enter` again when the user comes back.
-- **The user is idle.** The browser reports mouse, keyboard, scroll and touch
-  activity (at most every 5 s). With no activity for 2 minutes on Home or
-  5 minutes on Articles and Statistics (pages you read or watch without
-  touching anything), the visit ends at the last activity. The next activity
-  starts a new one.
+- **Uporabnik ne gleda aplikacije.** Zavihek je skrit (drug zavihek,
+  pomanjšano okno) ali okno ni v fokusu (spredaj je drug program). Brskalnik
+  pošlje `pause`, ob vrnitvi pa ponovno `enter`.
+- **Uporabnik je neaktiven.** Brskalnik sporoča aktivnost miške, tipkovnice,
+  drsenja in dotika (največ vsakih 5 s). Brez aktivnosti 2 minuti na strani
+  Home oziroma 5 minut na straneh Articles in Statistics (strani, ki jih
+  bereš ali gledaš brez dotikanja) se obisk konča ob zadnji aktivnosti.
+  Naslednja aktivnost začne nov obisk.
 
-**Several tabs:** a user can only be on one page at a time. A partial unique
-index (`one open visit per user`) enforces it in the database. Starting a visit
-closes the user's other open visit, so time is never counted twice; the
-other tab shows "another tab is active" until the user uses it again.
+**Več zavihkov:** uporabnik je lahko hkrati samo na eni strani. To v bazi
+zagotavlja delni unikatni indeks (en odprt obisk na uporabnika). Ko se začne
+nov obisk, se uporabnikov drug odprt obisk zapre, zato se čas nikoli ne šteje
+dvakrat; drug zavihek prikaže "another tab is active", dokler ga uporabnik
+spet ne uporabi.
 
-**Continuing after re-login:** totals are always summed over all stored visits,
-so a new login simply adds new rows on top of the old ones.
+**Nadaljevanje po ponovni prijavi:** skupni časi so vedno vsota vseh shranjenih
+obiskov, zato nova prijava preprosto doda nove vrstice k starim.
 
-### What content do the pages have, and why?
+### Kakšno vsebino imajo strani in zakaj?
 
-- **Home:** a welcome and a plain explanation of what is tracked and when the
-  clock stops. A user should know what is being measured about them.
-- **Articles:** several short articles (about time on page, honest measuring,
-  WebSockets, mobile-first design). Reading content is where "time on page"
-  actually means something, and it gives the idle detection a realistic case.
-- **Statistics:** the user's time per page, as numbers and bars showing each
-  page's share, updated every second. A **live** tag marks the page the user is
-  on right now. The admin sees one card per user. The server computes the
-  numbers with one query per second for all viewers together and sends each
-  viewer only what their role allows; the browser only displays them.
+- **Home:** pozdrav in preprosta razlaga, kaj se beleži in kdaj se čas
+  ustavi. Uporabnik naj ve, kaj se o njem meri.
+- **Articles:** več kratkih člankov (o času na strani, poštenem merjenju,
+  WebSocketih in mobile-first oblikovanju). Pri vsebini za branje "čas na
+  strani" zares nekaj pomeni, zaznavanje neaktivnosti pa dobi realen primer.
+- **Statistics:** uporabnikov čas po straneh, kot številke in stolpci z deležem
+  posamezne strani, posodobljeno vsako sekundo. Oznaka **live** označuje
+  stran, na kateri je uporabnik trenutno. Admin vidi kartico za vsakega
+  uporabnika. Strežnik izračuna številke z eno poizvedbo na sekundo za vse
+  gledalce skupaj in vsakemu pošlje samo tisto, kar dovoljuje njegova vloga;
+  brskalnik jih samo prikaže.
 
-A status line under the header always shows whether time is being counted
-("Tracking: Articles", "Paused: no activity", …), so the tracking is never a
-mystery to the user.
+Statusna vrstica pod glavo ves čas kaže, ali se čas šteje ("Tracking:
+Articles", "Paused: no activity" …), tako da beleženje za uporabnika nikoli
+ni skrivnost.
 
-## 3. Future improvements
+## 3. Prihodnje izboljšave
 
-- **Automated tests.** Integration tests for the tracking rules (idle,
-  multiple tabs, disconnect, logout) against a test database, and Playwright
-  tests for the main flows. So far everything was tested manually with the
-  scripts in `backend/scripts/` and `requests.http`.
-- **Scaling the live stats.** The stats query sums all visits of all users
-  every second. With many users, keep running totals per user and page (updated
-  when a visit ends) and only add the open visits on top, or move to
-  Postgres `LISTEN/NOTIFY` and push only when something changed.
-- **More than one backend instance.** Socket state lives in one process
-  memory. With several instances, logout and "another tab took over" would
-  need to be broadcast between them (e.g. Redis pub/sub).
-- **Security hardening:** rate limiting on login and register, HTTPS with
-  `COOKIE_SECURE=true`, a required strong `JWT_SECRET` in production, and a
-  way to revoke tokens before they expire.
-- **Admin features:** a date range filter (today, last 7 days), sorting and
-  searching users, and charts over time. The data per visit is already stored.
-- **Account management:** changing the password, deleting the account, and an
-  admin managing roles.
-- **Accessibility and UX:** a proper audit (screen readers, keyboard
-  navigation), and showing a user a small "you were idle" notice.
+- **Avtomatski testi.** Integracijski testi pravil beleženja (neaktivnost, več
+  zavihkov, prekinitev povezave, odjava) na testni bazi in Playwright testi za
+  glavne poteke. Zaenkrat je bilo vse testirano ročno s skriptami v
+  `backend/scripts/` in z `requests.http`.
+- **Skaliranje statistike v živo.** Poizvedba vsako sekundo sešteje vse obiske
+  vseh uporabnikov. Pri veliko uporabnikih bi hranil sprotne vsote po
+  uporabniku in strani (posodobljene ob koncu obiska) in prišteval le odprte
+  obiske, ali pa uporabil Postgres `LISTEN/NOTIFY` in pošiljal samo ob spremembi.
+- **Več instanc backenda.** Stanje povezav je v pomnilniku enega procesa. Pri
+  več instancah bi bilo treba odjavo in "drug zavihek je prevzel" sporočati
+  med njimi (npr. Redis pub/sub).
+- **Varnost:** omejevanje števila poskusov (rate limiting) pri prijavi in
+  registraciji, HTTPS z `COOKIE_SECURE=true`, obvezen močan `JWT_SECRET` v
+  produkciji in možnost preklica žetonov pred potekom.
+- **Funkcije za admina:** filter po obdobju (danes, zadnjih 7 dni), razvrščanje
+  in iskanje uporabnikov ter grafi skozi čas. Podatki o vsakem obisku so že
+  shranjeni.
+- **Upravljanje računa:** sprememba gesla, izbris računa in upravljanje vlog
+  s strani admina.
+- **Dostopnost in uporabniška izkušnja:** temeljit pregled (bralniki zaslona,
+  navigacija s tipkovnico) in kratko obvestilo "bili ste neaktivni".
 
-## 4. Use of AI tools
+## 4. Uporaba AI orodij
 
-> ✏️ **Draft — rewrite this in your own words so it's accurate.**
+> ✏️ **Osnutek — preoblikuj v svoje besede, da bo točno.**
 
-I used Claude Code (an AI coding agent) throughout the project.
+Skozi ves projekt mi je pomagal Claude Code (AI agent za programiranje).
 
-- **Planning:** I discussed the task with the AI and we agreed on the stack,
-  the database schema and a step-by-step plan, with one commit per step.
-- **Backend:** built step by step together. The AI wrote each piece and
-  explained it; I reviewed it, asked questions until I understood it, ran and
-  tested every step myself (`requests.http`, the WebSocket test scripts,
-  checking the database), and made all the commits. Some decisions came from
-  my own testing, for example per-page idle detection, and that stats should
-  only count while the window is actually in focus.
-- **Frontend:** written mostly by the AI (React app, tracker hook, statistics
-  page, styles, nginx and the Docker setup). I tested it in the browser and on
-  a phone-sized screen and reported the problems I found, which were then fixed.
-- **Bugs found by testing:** for example, users showed as "live" on pages they
-  had never visited (a `LEFT JOIN` + `BOOL_OR` mistake in the stats query).
-- **README:** drafted with the AI, then edited by me.
+- **Načrtovanje:** nalogo sva predelala skupaj in se dogovorila o
+  tehnologijah, shemi baze in načrtu po korakih, z enim commitom na korak.
+- **Backend:** narejen korak za korakom skupaj. AI je napisal posamezen del in
+  ga razložil; jaz sem ga pregledal, spraševal, dokler ga nisem razumel, vsak
+  korak sam zagnal in testiral (`requests.http`, testne skripte za WebSocket,
+  preverjanje baze) in naredil vse commite. Nekatere odločitve so nastale iz
+  mojega testiranja, na primer zaznavanje neaktivnosti po straneh in to, da
+  se čas šteje samo, ko je okno res v fokusu.
+- **Frontend:** večinoma ga je napisal AI (React aplikacija, tracker hook,
+  stran s statistiko, stili, nginx in Docker). Testiral sem ga v brskalniku in
+  na zaslonu velikosti telefona ter sporočil težave, ki so bile nato odpravljene.
+- **Napake, najdene s testiranjem:** na primer, uporabniki so bili označeni
+  kot "live" na straneh, ki jih sploh niso obiskali (napaka z `LEFT JOIN` +
+  `BOOL_OR` v poizvedbi za statistiko).
+- **README:** osnutek z AI, nato uredil sam.
 
-## 5. Challenges
+## 5. Izzivi
 
-> ✏️ **Draft — rewrite this in your own words.**
+> ✏️ **Osnutek — preoblikuj v svoje besede.**
 
-- **Defining "time on a page".** The hardest part wasn't code but deciding
-  what should count: a hidden tab, a visible window behind another program, an
-  open tab nobody is touching, two tabs at once. Each answer needed a different
-  mechanism (visibility, focus, activity, one open visit per user).
-- **Detecting a lost connection honestly.** A closed tab is easy, but a dead
-  network connection isn't noticed by TCP for a long time. The solution was the
-  ping/pong heartbeat, and ending such visits at the last activity rather than
-  when the problem was noticed.
-- **Race conditions.** Two tabs starting a visit at the same moment, or
-  messages from one socket being handled out of order. Solved with a row lock
-  in the database transaction and a per-socket queue.
-- **First full app.** This was my first complete application, so Docker
-  networking, cookies across the proxy and WebSockets through nginx were all new.
+- **Kaj sploh je "čas na strani".** Najtežja ni bila koda, ampak odločitev,
+  kaj naj se šteje: skrit zavihek, vidno okno za drugim programom, odprt
+  zavihek, ki se ga nihče ne dotika, dva zavihka hkrati. Vsak odgovor je
+  zahteval drug mehanizem (vidnost, fokus, aktivnost, en odprt obisk na
+  uporabnika).
+- **Pošteno zaznavanje izgubljene povezave.** Zaprt zavihek je enostaven, mrtvo
+  omrežno povezavo pa TCP opazi šele po dolgem času. Rešitev je bil ping/pong
+  heartbeat in zaključevanje takih obiskov ob zadnji aktivnosti, ne ob
+  trenutku, ko je bila težava opažena.
+- **Tekmovalna stanja (race conditions).** Dva zavihka, ki začneta obisk v
+  istem trenutku, ali sporočila ene povezave, obdelana v napačnem vrstnem redu.
+  Rešeno z zaklepanjem vrstice v transakciji baze in čakalno vrsto za vsako
+  povezavo.
+- **Prva celotna aplikacija.** To je moja prva celotna aplikacija, zato so bili
+  Docker omrežje, piškotki prek proxyja in WebSocketi skozi nginx zame novost.
 
-## 6. Open questions
+## 6. Odprta vprašanja
 
-> ✏️ **Draft — check these match what you actually wondered about.**
+> ✏️ **Osnutek — preveri, ali se ujema s tem, kar te je res zanimalo.**
 
-- **Does a background tab count?** The task says time is recorded while the
-  user is on a page, but not what "on" means. I decided it only counts while
-  the user is actually looking at the app: visible tab, focused window, and
-  some activity in the last few minutes. That was my own choice; a simpler
-  reading ("the page is open") would count much more time.
-- **How long is "idle"?** There's no right number. I chose 2 minutes for Home
-  and 5 for the reading pages, configurable through `IDLE_TIMEOUT_SECONDS`.
-- **Is the admin tracked too?** I assumed yes: the admin is also a user of the
-  app, so their time is recorded and shown like everyone else's.
-- **Several tabs.** Should two open tabs count twice, or once? I decided once
-  (the last used tab wins), since one person can only read one page at a time.
-- **How is the admin created?** Not specified. I chose a seed from environment
-  variables, so that registering can never create an admin.
+- **Ali se šteje zavihek v ozadju?** Naloga pravi, da se beleži čas na strani,
+  ne pa, kaj pomeni "biti na strani". Odločitev: čas se šteje samo, ko
+  uporabnik aplikacijo res gleda — viden zavihek, okno v fokusu in nekaj
+  aktivnosti v zadnjih nekaj minutah. To je moja lastna izbira; preprostejša
+  razlaga ("stran je odprta") bi naštela precej več časa.
+- **Kako dolgo je "neaktiven"?** Pravilne številke ni. Izbral sem 2 minuti za
+  Home in 5 za strani z branjem, nastavljivo prek `IDLE_TIMEOUT_SECONDS`.
+- **Ali se beleži tudi admin?** Predpostavka: da. Admin je tudi uporabnik
+  aplikacije, zato se njegov čas beleži in prikazuje kot pri vseh drugih.
+- **Več zavihkov.** Naj se dva odprta zavihka štejeta dvakrat ali enkrat?
+  Odločitev: enkrat (zmaga nazadnje uporabljen zavihek), ker človek hkrati
+  bere samo eno stran.
+- **Kako nastane admin?** Ni bilo določeno. Izbral sem seed iz okoljskih
+  spremenljivk, tako da registracija nikoli ne more ustvariti admina.
