@@ -14,7 +14,7 @@ CREATE TABLE page_visits (
   page         TEXT NOT NULL CHECK (page IN ('home', 'articles', 'stats')),
   started_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   ended_at     TIMESTAMPTZ,
-  -- updated on every heartbeat; used as the end time if the connection dies
+  -- the user's last activity; used as the end time if they go idle or the connection dies
   last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK (ended_at IS NULL OR ended_at >= started_at)
 );
