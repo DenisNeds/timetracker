@@ -5,8 +5,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-tracker}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tracker}
       POSTGRES_DB: ${POSTGRES_DB:-tracker}
-    ports:
-      - "5432:5432"
+    # No ports published: only the backend talks to the database, inside
+    # Docker's network. For a SQL shell: docker compose exec db psql -U tracker
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -27,8 +27,11 @@ services:
       # optional: one idle timeout for all pages (e.g. 15 for testing).
       # Empty = per-page defaults from ws.js (home 2 min, articles and stats 5 min)
       IDLE_TIMEOUT_SECONDS: ${IDLE_TIMEOUT_SECONDS:-}
+    # Published only for local development (npm run dev, requests.http);
+    # the app itself reaches the backend through nginx.
+    # BACKEND_PORT changes the port if 3000 is already taken on your machine.
     ports:
-      - "3000:3000"
+      - "${BACKEND_PORT:-3000}:3000"
     depends_on:
       db:
         condition: service_healthy
