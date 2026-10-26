@@ -24,13 +24,13 @@ Nato odprite **http://localhost:8080**.
 Privzete nastavitve delujejo brez kakršne koli konfiguracije. Za spremembo
 kopirajte `.env.example` v `.env` in ga uredite:
 
-| Spremenljivka                                         | Privzeto                                                                   | Namen                                                                   |
-| ----------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `FRONTEND_PORT`                                       | `8080`                                                                     | Vrata aplikacije v brskalniku (spremenite, če so 8080 zasedena)         |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD`                   | `admin` / `admin123`                                                       | Admin račun, ustvarjen ob prvem zagonu                                  |
-| `JWT_SECRET`                                          | `mionpiongluonbozonelektronnevtronpozitronfotonprotongordolcharmbottomtop` | Podpisuje prijavne žetone; **za resno uporabo ga obvezno spremenite**   |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `tracker`                                                                  | Podatki za dostop do baze                                               |
-| `IDLE_TIMEOUT_SECONDS`                                | (po straneh)                                                               | En časovni prag neaktivnosti za vse strani, npr. `15` za hiter preizkus |
+| Spremenljivka                                         | Privzeto                | Namen                                                                   |
+| ----------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------- |
+| `FRONTEND_PORT`                                       | `8080`                  | Vrata aplikacije v brskalniku (spremenite, če so 8080 zasedena)         |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD`                   | `admin` / `admin123`    | Admin račun, ustvarjen ob prvem zagonu                                  |
+| `JWT_SECRET`                                          | `-dev-secret-change-me` | Podpisuje prijavne žetone; **za resno uporabo ga obvezno spremenite**   |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `tracker`               | Podatki za dostop do baze                                               |
+| `IDLE_TIMEOUT_SECONDS`                                | (po straneh)            | En časovni prag neaktivnosti za vse strani, npr. `15` za hiter preizkus |
 
 Ob zagonu backend izvede migracijo baze, ustvari admin račun (če še ne obstaja)
 in zapre obiske, ki jih je odprte pustil prejšnji zagon.
@@ -223,7 +223,6 @@ Skozi ves projekt mi je pomagal Claude Code (AI agent za programiranje).
 
 ## 5. Izzivi
 
-
 - **Prva celotna aplikacija.** To je moja prva celotna aplikacija, zato je to zame
   bil dodaten izziv.
 - **Kaj sploh je "čas na strani".** Najtežja ni bila koda, ampak odločitev,
@@ -239,6 +238,7 @@ Skozi ves projekt mi je pomagal Claude Code (AI agent za programiranje).
   istem trenutku, ali sporočila ene povezave, obdelana v napačnem vrstnem redu.
   Rešeno z zaklepanjem vrstice v transakciji baze in čakalno vrsto za vsako
   povezavo.
+
 ## 6. Odprta vprašanja
 
 - **Ali se šteje zavihek v ozadju?** Naloga pravi, da se beleži čas na strani,
