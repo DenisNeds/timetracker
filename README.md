@@ -121,7 +121,7 @@ uporabnika na strani je vsota njegovih vrstic za to stran; odprta vrstica
 
 ### Kako se uporabniki prijavijo in kako ločimo admina od navadnega uporabnika?
 
-- **Uporabniško ime in geslo.** Gesla so zgoščena z bcrypt. Registracija je
+- **Uporabniško ime in geslo.** Gesla so kriptirana z bcrypt. Registracija je
   odprta, vnos pa se preverja na strežniku.
 - Po prijavi strežnik nastavi **JWT v httpOnly piškotku** (7 dni). JavaScript
   ga ne more prebrati, kar ga ščiti pred XSS; `sameSite: lax` ščiti pred CSRF.
