@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import { migrate } from './migrate.js';
 import { seedAdmin } from './seed.js';
 import authRoutes from './routes/auth.js';
+import statsRoutes from './routes/stats.js';
 import { closeStaleVisits } from './tracking/visits.js';
 import { attachWebSocket } from './ws.js';
 
@@ -22,6 +23,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/stats', statsRoutes);
 
 // Error middleware: Express calls this when a handler throws or calls next(err).
 // It must have 4 parameters, that's how Express recognises it.

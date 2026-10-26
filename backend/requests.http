@@ -41,6 +41,9 @@ GET {{baseUrl}}/auth/me
 ### Log out (clears the cookie; /me returns 401 afterwards)
 POST {{baseUrl}}/auth/logout
 
+### Stats: a user gets only their own, an admin gets all users (401 if not logged in)
+GET {{baseUrl}}/stats
+
 ### Invalid input: username too short (400)
 POST {{baseUrl}}/auth/register
 Content-Type: application/json

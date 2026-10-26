@@ -1,6 +1,8 @@
 import { WebSocketServer } from 'ws';
 import { verifyToken, TOKEN_COOKIE } from './middleware/auth.js';
-import { PAGES, startVisit, touchVisit, endVisit } from './tracking/visits.js';
+import {
+  PAGES, startVisit, touchVisit, endVisit, getStats,
+} from './tracking/visits.js';
 
 // Every 10 s the server pings each browser. A browser that hasn't answered
 // the previous ping by the next round is treated as gone (closed laptop,
@@ -22,6 +24,9 @@ const IDLE_TIMEOUT_OVERRIDE_MS = Number(process.env.IDLE_TIMEOUT_SECONDS) * 1000
 function idleTimeoutFor(page) {
   return IDLE_TIMEOUT_OVERRIDE_MS ?? IDLE_TIMEOUTS_MS[page];
 }
+
+// How often tabs on the stats page get fresh numbers
+const STATS_PUSH_INTERVAL_MS = 1000;
 
 let wss;
 
@@ -65,6 +70,40 @@ async function startTracking(ws, page) {
   }
 }
 
+// Builds the stats message for one viewer out of everyone's stats:
+// an admin sees all users, a normal user only their own row.
+function statsMessage(user, allStats) {
+  const isAdmin = user.role === 'admin';
+  return {
+    type: 'stats',
+    scope: isAdmin ? 'all' : 'own',
+    users: isAdmin ? allStats : allStats.filter((s) => s.userId === user.id),
+  };
+}
+
+// Every second: send fresh stats to every tab that is on the stats page.
+// One query for all viewers together (not one per viewer), then each
+// viewer gets only the part they're allowed to see.
+let pushRunning = false;
+async function pushStats() {
+  // skip this round if the previous one is still waiting for the database
+  if (pushRunning) return;
+  const viewers = [...wss.clients].filter((ws) => ws.page === 'stats' && !ws.paused);
+  if (viewers.length === 0) return;
+
+  pushRunning = true;
+  try {
+    const allStats = await getStats();
+    for (const ws of viewers) {
+      send(ws, statsMessage(ws.user, allStats));
+    }
+  } catch (err) {
+    console.error('Stats push failed:', err);
+  } finally {
+    pushRunning = false;
+  }
+}
+
 async function handleMessage(ws, msg) {
   switch (msg.type) {
     // { type: 'enter', page: 'home' } — the user is now looking at this page
@@ -73,6 +112,11 @@ async function handleMessage(ws, msg) {
         return send(ws, { type: 'error', error: `Unknown page: ${msg.page}` });
       }
       await startTracking(ws, msg.page);
+      if (msg.page === 'stats') {
+        // send stats right away instead of waiting up to a second for the next push
+        const isAdmin = ws.user.role === 'admin';
+        send(ws, statsMessage(ws.user, await getStats(isAdmin ? null : ws.user.id)));
+      }
       break;
 
     // { type: 'activity' } — the user moved the mouse, typed, scrolled...
@@ -183,7 +227,12 @@ export function attachWebSocket(server) {
       enqueue(ws, () => endIdleVisit(ws));
     }
   }, HEARTBEAT_INTERVAL_MS);
-  wss.on('close', () => clearInterval(heartbeat));
+  const statsPush = setInterval(pushStats, STATS_PUSH_INTERVAL_MS);
+
+  wss.on('close', () => {
+    clearInterval(heartbeat);
+    clearInterval(statsPush);
+  });
 }
 
 // Called on logout: disconnect all of this user's open tabs

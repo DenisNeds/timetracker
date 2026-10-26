@@ -75,3 +75,45 @@ export async function closeStaleVisits() {
     console.log(`Closed ${rowCount} visit(s) left open by a previous run`);
   }
 }
+
+// Total time per page, per user. Pass a userId for one user, or nothing for all users.
+// Returns [{ userId, username, role, totalSeconds,
+//            pages: { home: { seconds, active }, articles: {...}, stats: {...} } }]
+// "active" = the user is on that page right now, so its time is still growing.
+export async function getStats(userId = null) {
+  const { rows } = await query(
+    `SELECT u.id AS user_id, u.username, u.role, p.page,
+            -- open visits (ended_at IS NULL) count up to this moment
+            COALESCE(EXTRACT(EPOCH FROM SUM(COALESCE(v.ended_at, now()) - v.started_at)), 0)::float8
+              AS seconds,
+            -- v.id IS NOT NULL: a page with no visits still gets one LEFT JOIN
+            -- row full of NULLs, and that row must not count as an open visit
+            COALESCE(BOOL_OR(v.id IS NOT NULL AND v.ended_at IS NULL), false) AS active
+     FROM users u
+     -- every user x every page, so pages with no visits still show up as 0
+     CROSS JOIN unnest($2::text[]) AS p(page)
+     LEFT JOIN page_visits v ON v.user_id = u.id AND v.page = p.page
+     WHERE $1::int IS NULL OR u.id = $1
+     GROUP BY u.id, u.username, u.role, p.page
+     ORDER BY u.username, array_position($2::text[], p.page)`,
+    [userId, PAGES],
+  );
+
+  // One row per (user, page) -> one object per user
+  const byUser = new Map();
+  for (const row of rows) {
+    if (!byUser.has(row.user_id)) {
+      byUser.set(row.user_id, {
+        userId: row.user_id,
+        username: row.username,
+        role: row.role,
+        totalSeconds: 0,
+        pages: {},
+      });
+    }
+    const user = byUser.get(row.user_id);
+    user.pages[row.page] = { seconds: row.seconds, active: row.active };
+    user.totalSeconds += row.seconds;
+  }
+  return [...byUser.values()];
+}
