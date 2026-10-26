@@ -33,5 +33,14 @@ services:
       db:
         condition: service_healthy
 
+  frontend:
+    build: ./frontend
+    # The app: open http://localhost:8080. nginx forwards /api and /ws to the backend.
+    # FRONTEND_PORT changes the port if 8080 is already taken on your machine.
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - backend
+
 volumes:
   db-data:
