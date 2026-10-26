@@ -191,17 +191,6 @@ ni skrivnost.
 
 ## 3. Prihodnje izboljšave
 
-- **Avtomatski testi.** Integracijski testi pravil beleženja (neaktivnost, več
-  zavihkov, prekinitev povezave, odjava) na testni bazi in Playwright testi za
-  glavne poteke. Zaenkrat je bilo vse testirano ročno s skriptami v
-  `backend/scripts/` in z `requests.http`.
-- **Skaliranje statistike v živo.** Poizvedba vsako sekundo sešteje vse obiske
-  vseh uporabnikov. Pri veliko uporabnikih bi hranil sprotne vsote po
-  uporabniku in strani (posodobljene ob koncu obiska) in prišteval le odprte
-  obiske, ali pa uporabil Postgres `LISTEN/NOTIFY` in pošiljal samo ob spremembi.
-- **Več instanc backenda.** Stanje povezav je v pomnilniku enega procesa. Pri
-  več instancah bi bilo treba odjavo in "drug zavihek je prevzel" sporočati
-  med njimi (npr. Redis pub/sub).
 - **Varnost:** omejevanje števila poskusov (rate limiting) pri prijavi in
   registraciji, HTTPS z `COOKIE_SECURE=true`, obvezen močan `JWT_SECRET` v
   produkciji in možnost preklica žetonov pred potekom.
@@ -214,8 +203,6 @@ ni skrivnost.
   navigacija s tipkovnico) in kratko obvestilo "bili ste neaktivni".
 
 ## 4. Uporaba AI orodij
-
-> ✏️ **Osnutek — preoblikuj v svoje besede, da bo točno.**
 
 Skozi ves projekt mi je pomagal Claude Code (AI agent za programiranje).
 
@@ -233,12 +220,12 @@ Skozi ves projekt mi je pomagal Claude Code (AI agent za programiranje).
 - **Napake, najdene s testiranjem:** na primer, uporabniki so bili označeni
   kot "live" na straneh, ki jih sploh niso obiskali (napaka z `LEFT JOIN` +
   `BOOL_OR` v poizvedbi za statistiko).
-- **README:** osnutek z AI, nato uredil sam.
 
 ## 5. Izzivi
 
-> ✏️ **Osnutek — preoblikuj v svoje besede.**
 
+- **Prva celotna aplikacija.** To je moja prva celotna aplikacija, zato je to zame
+  bil dodaten izziv.
 - **Kaj sploh je "čas na strani".** Najtežja ni bila koda, ampak odločitev,
   kaj naj se šteje: skrit zavihek, vidno okno za drugim programom, odprt
   zavihek, ki se ga nihče ne dotika, dva zavihka hkrati. Vsak odgovor je
@@ -252,12 +239,7 @@ Skozi ves projekt mi je pomagal Claude Code (AI agent za programiranje).
   istem trenutku, ali sporočila ene povezave, obdelana v napačnem vrstnem redu.
   Rešeno z zaklepanjem vrstice v transakciji baze in čakalno vrsto za vsako
   povezavo.
-- **Prva celotna aplikacija.** To je moja prva celotna aplikacija, zato so bili
-  Docker omrežje, piškotki prek proxyja in WebSocketi skozi nginx zame novost.
-
 ## 6. Odprta vprašanja
-
-> ✏️ **Osnutek — preveri, ali se ujema s tem, kar te je res zanimalo.**
 
 - **Ali se šteje zavihek v ozadju?** Naloga pravi, da se beleži čas na strani,
   ne pa, kaj pomeni "biti na strani". Odločitev: čas se šteje samo, ko
